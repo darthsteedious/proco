@@ -32,7 +32,9 @@ int handle_request(table_entry *entries, log_file log, int *reqPipe, int *resPip
     request parsed;
     parse_request(req_mesg, &parsed, log);
 
-    return parsed.action != Q && process_request(entries, &parsed, resPipe, log);
+    process_request(entries, &parsed, resPipe, log);
+
+    return parsed.action != Q;
 }
 
 void parse_request(const char *req, request *out, log_file log) {
@@ -69,17 +71,20 @@ int process_request(table_entry *entries, request *parsed, int *resPipe, log_fil
         return 0;
     }
 
-    char mesg[STR_LEN];
-    if (parsed->action == U) {
-        sprintf(mesg, "Got request: %d %d %c %s %d", parsed->origin, parsed->origin_pid,
-                (char)parsed->action, parsed->id, parsed->value);
-    } else {
-        sprintf(mesg, "Got request: %d %d %c %s", parsed->origin, parsed->origin_pid,
-                (char)parsed->action, parsed->id);
+    if (parsed->action == Q) {
+        return 1;
     }
-    info(log, mesg);
-    printf("Request: %s\n", mesg);
 
+//    char mesg[STR_LEN];
+//    if (parsed->action == U) {
+//        sprintf(mesg, "Got -- %d %d %c %s %d", parsed->origin, parsed->origin_pid,
+//                (char)parsed->action, parsed->id, parsed->value);
+//    } else {
+//        sprintf(mesg, "Got -- %d %d %c %s", parsed->origin, parsed->origin_pid,
+//                (char)parsed->action, parsed->id);
+//    }
+//
+//    info(log, mesg);
 
     switch(parsed->action) {
         case R: return handle_read(resPipe, parsed, log, entries);
@@ -89,7 +94,7 @@ int process_request(table_entry *entries, request *parsed, int *resPipe, log_fil
 }
 
 int handle_read(int *resPipe, request *parsed, log_file log, table_entry *entries) {
-    table_entry result;
+    table_entry result = { "\0", 0 };
     int rv = table_read(entries, parsed->id, &result);
 
     char mesg[200];
@@ -111,5 +116,22 @@ int handle_read(int *resPipe, request *parsed, log_file log, table_entry *entrie
 }
 
 int handle_update(int *resPipe, request *parsed, log_file log, table_entry *entries) {
-    return 0;
+    int rv = table_update(entries, parsed->id, parsed->value);
+
+    char mesg[200];
+    if (rv) {
+        sprintf(mesg, "Request %d %d %c %s -- Updated successfully", parsed->origin, parsed->origin_pid,
+                parsed->action, parsed->id);
+        info(log, mesg);
+    } else {
+        sprintf(mesg, "Request %d %d %c %s -- Failed to update", parsed->origin, parsed->origin_pid,
+                parsed->action, parsed->id);
+        error(log, mesg);
+    }
+
+    char res[STR_LEN];
+    sprintf(res, "%c %s %d %d", parsed->action, parsed->id, parsed->value, rv);
+    write(resPipe[FD_WRITE], res, STR_LEN);
+
+    return rv;
 }

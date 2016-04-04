@@ -9,5 +9,6 @@
 
 #define BASE "/Users/Steed/ClionProjects/proco"
 #define LOG_FILE "/Users/Steed/ClionProjects/proco/log.dat"
+#define FILE_NAME "/Users/Steed/ClionProjects/proco/init.dat"
 
 #endif //PROCO_UTIL_H

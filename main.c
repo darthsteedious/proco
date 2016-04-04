@@ -42,12 +42,8 @@ int main() {
             int *req = i == 0 ? (int *) pfds_p1_req : pfds_p2_req;
             int *res = i == 0 ? (int *) pfds_p1_res : pfds_p2_res;
 
-            printf("pid -- %d\n", getpid());
-
             char workerFile[STR_LEN];
             sprintf(workerFile, "%s/proc%d.dat", BASE, i + 1);
-            printf("%d\n", i);
-            printf("%s\n", workerFile);
             if (i == 0) {
                 FILE *p1;
                 if ((p1 = fopen(workerFile, "r")) != NULL) {
@@ -71,17 +67,19 @@ int main() {
     sprintf(pid_mesg, "Parent pid: %d", getpid());
     info(log, pid_mesg);
 
-    int p1Alive, p2Alive = 1;
+    int p1Alive = 1, p2Alive = 1;
 
     do {
-        // Handle P1 Request
-        p1Alive = handle_request(entries, log, pfds_p1_req, pfds_p1_res);
+        if (p1Alive) {
+            // Handle P1 Request
+            p1Alive = handle_request(entries, log, pfds_p1_req, pfds_p1_res);
+        }
 
-        // Handle P2 Request
-        p2Alive = handle_request(entries, log, pfds_p2_req, pfds_p2_res);
+        if (p2Alive) {
+            // Handle P2 Request
+            p2Alive = handle_request(entries, log, pfds_p2_req, pfds_p2_res);
+        }
     } while (p1Alive || p2Alive);
-
-    printf("waiting\n");
 
     waitpid(pids[0], NULL, 0);
     waitpid(pids[1], NULL, 0);
@@ -94,6 +92,19 @@ int main() {
     close_pipes(pfds_p2_res);
 
     log_close(log);
+
+    FILE *out;
+
+    if ((out = fopen(FILE_NAME, "w")) != NULL) {
+        int max = 7; // TODO: This is HAF. Need to use a better structure. currently will break with more than 7.
+        int i;
+        for (i = 0; i < max; i++) {
+            fprintf(out, "%s %d\n", entries[i].id, entries[i].value);
+        }
+
+        fclose(out);
+    }
+
     free(entries); // TODO: Need to write the final output of entries to the init.dat file
 
     return 0;
@@ -101,7 +112,7 @@ int main() {
 
 void client(int *reqPipe, int *resPipe, int origin, FILE *file) {
     int res = 0;
-    char action;
+    char action = '\0';
     char id[STR_LEN];
     int value;
     char response[STR_LEN];
@@ -111,12 +122,16 @@ void client(int *reqPipe, int *resPipe, int origin, FILE *file) {
         res = fscanf(file, "%s %s %d", &action, id, &value);
 
         if (res != EOF) {
-            sprintf(request, "%d %d %c %s", origin, getpid(), action, id);
+            if (res == 3) {
+                sprintf(request, "%d %d %c %s %d", origin, getpid(), action, id, value);
+            } else {
+                sprintf(request, "%d %d %c %s", origin, getpid(), action, id);
+            }
 
             write(reqPipe[FD_WRITE], request, STR_LEN);
-
             read(resPipe[FD_READ], response, STR_LEN);
-            printf("res -- %s\n", response);
+
+            printf("Origin %d -- %s\n", origin, response);
         }
     }
 

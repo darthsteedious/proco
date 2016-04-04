@@ -4,7 +4,6 @@
 
 #include "../include/store.h"
 
-#define FILE_NAME "/Users/Steed/ClionProjects/proco/init.dat"
 #define MAX_ENTRIES 50
 
 int parse(FILE *file, table_entry *entry);
