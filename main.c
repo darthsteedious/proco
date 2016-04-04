@@ -105,7 +105,7 @@ int main() {
         fclose(out);
     }
 
-    free(entries); // TODO: Need to write the final output of entries to the init.dat file
+    free(entries);
 
     return 0;
 }
